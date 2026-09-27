@@ -31,6 +31,14 @@ repositories {
     mavenCentral()
 
     maven {
+        name = "Iron's Maven"
+        url = "https://code.redspace.io/releases"
+        content {
+            includeGroup "io.redspace"
+        }
+    }
+
+    maven {
         name = 'Forge'
         url = "https://maven.minecraftforge.net"
     }
@@ -168,10 +176,12 @@ dependencies {
     testImplementation "org.mockito:mockito-core:5.15.2"
 
     implementation "curse.maven:astral-sorcery-241721:${astral_sorcery_file}"
-    implementation "vazkii.botania:botania-neoforge-${minecraft_version}:${botania_version}"
+    // implementation "vazkii.botania:botania-neoforge-${minecraft_version}:${botania_version}"
     implementation "maven.modrinth:occultism:${occultism_version}"
     implementation "maven.modrinth:neovitae:${neovitae_version}"
     implementation "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:${ars_nouveau_version}"
+    implementation "io.redspace:irons_spellbooks:${irons_spells_version}"
+
 
     runtimeOnly "curse.maven:observerlib-316833:${observerlib_file}"
     runtimeOnly "maven.modrinth:geckolib:${geckolib_version_id}"

@@ -1,0 +1,310 @@
+import com.diffplug.spotless.LineEnding
+
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.141'
+    id 'dev.ithundxr.silk' version "1.0.1" // https://github.com/ithundxr/silk
+    id 'me.modmuss50.mod-publish-plugin' version '1.1.0' // https://github.com/modmuss50/mod-publish-plugin
+    id 'com.diffplug.spotless' version '8.9.0'
+}
+
+spotless {
+    lineEndings = LineEnding.UNIX
+    java {
+        target fileTree('src') { include '**/*.java' }
+        palantirJavaFormat('2.96.0')
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+String changelogText = silk.getChangelog()
+String gitHash = calculateGitHash()
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+
+    maven {
+        name = 'Forge'
+        url = "https://maven.minecraftforge.net"
+    }
+
+    maven {
+        name = 'JEI Maven'
+        url = 'https://maven.blamejared.com/'
+    }
+
+    maven {
+        name = 'Curse Maven'
+        url = 'https://cursemaven.com'
+        content {
+            includeGroup 'curse.maven'
+        }
+    }
+
+    maven {
+        name = "Illusive Soulworks maven"
+        url = "https://maven.theillusivec4.top/"
+    }
+
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
+
+    maven {
+        name = "Geckolib"
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+    }
+}
+
+base {
+    archivesName = mod_id+"-1.21.1-NeoForge-BETA"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    failOnError = false
+}
+
+tasks.named('compileJava') {
+    options.compilerArgs << '-Xmaxerrs' << '2000'
+    if (project.hasProperty('excludeClient')) {
+        exclude 'com/reclipse/thaumaturgicintegrations/client/**'
+        exclude 'com/reclipse/thaumaturgicintegrations/mixin/client/**'
+        exclude 'com/reclipse/thaumaturgicintegrations/compat/**'
+        exclude 'com/reclipse/thaumaturgicintegrations/data/**'
+    }
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+tasks.register('generateData', Exec) {
+    workingDir projectDir
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', new File(projectDir, 'gradlew.bat').absolutePath, 'runData', '-PdatagenPass=true'
+    } else {
+        commandLine new File(projectDir, 'gradlew').absolutePath, 'runData', '-PdatagenPass=true'
+    }
+}
+
+jar {
+    exclude("com/reclipse/thaumaturgicintegrations/debug/**")
+}
+
+
+dependencies {
+    compileOnly "org.jspecify:jspecify:1.0.0"
+
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testImplementation "org.mockito:mockito-core:5.15.2"
+
+    implementation "curse.maven:astral-sorcery-241721:${astral_sorcery_file}"
+    implementation "vazkii.botania:botania-neoforge-${minecraft_version}:${botania_version}"
+    implementation "maven.modrinth:occultism:${occultism_version}"
+    implementation "maven.modrinth:neovitae:${neovitae_version}"
+    implementation "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:${ars_nouveau_version}"
+
+    runtimeOnly "curse.maven:observerlib-316833:${observerlib_file}"
+    runtimeOnly "maven.modrinth:geckolib:${geckolib_version_id}"
+    runtimeOnly "maven.modrinth:modonomicon:${modonomicon_version}"
+    runtimeOnly "maven.modrinth:smartbrainlib:${smartbrainlib_version_id}"
+
+    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+
+    compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}+${minecraft_version}:api"
+    runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}+${minecraft_version}"
+
+    compileOnly "maven.modrinth:jade:${jade_version}"
+    runtimeOnly "maven.modrinth:jade:${jade_version}"
+
+    implementation files("./internal_deps/thaumaturge-${minecraft_version}-NeoForge-BETA-${thaumaturge_version}.jar")
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [minecraft_version      : minecraft_version,
+                             minecraft_version_range: minecraft_version_range,
+                             neo_version            : neo_version,
+                             neo_version_range      : neo_version_range,
+                             loader_version_range   : loader_version_range,
+                             mod_id                 : mod_id,
+                             mod_name               : mod_name,
+                             mod_license            : mod_license,
+                             mod_version            : mod_version,
+                             mod_authors            : mod_authors,
+                             mod_description        : mod_description]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifactId = mod_id
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "$maven_url"
+            credentials {
+                username = providers.environmentVariable("MAVEN_USERNAME").orNull
+                password = providers.environmentVariable("MAVEN_PASSWORD").orNull
+            }
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
+}
+
+
+publishMods {
+    file = jar.archiveFile
+    changelog = silk.changelog
+    type = STABLE
+    displayName = "$mod_name $mod_version for mc$minecraft_version"
+    modLoaders.add("neoforge")
+
+    curseforge {
+        accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
+        projectId = "$curseforge_id"
+        projectSlug = "$curseforge_slug"
+        minecraftVersions.add(minecraft_version)
+        changelogType = "markdown"
+    }
+
+    modrinth {
+        accessToken = providers.environmentVariable("MODRINTH_TOKEN")
+        projectId = "$modrinth_id"
+        minecraftVersions.add(minecraft_version)
+    }
+
+    github {
+        accessToken = providers.environmentVariable("GITHUB_TOKEN")
+        repository = "$github_repo"
+        commitish = gitHash
+        tagName = "$mod_version-$minecraft_version"
+        file.unset()
+        file.unsetConvention()
+
+        allowEmptyFiles = true
+    }
+
+    discord {
+        webhookUrl = providers.environmentVariable("DISCORD_WEBHOOK")
+        dryRunWebhookUrl = providers.environmentVariable("DISCORD_WEBHOOK_DRY_RUN")
+        content = """
+                # $mod_name | $mod_version
+                
+                ${if (changelogText.length() > 4000) "Changelog is too long, check it on [Modrinth](https://modrinth.com/mod/${modrinth_id}/changelog)" else changelogText}
+            """.stripIndent()
+
+        style {
+            link = "BUTTON"
+            look = "MODERN"
+          //thumbnailUrl = "https://cdn.modrinth.com/data/hSSqdyU1/e7229e03d0795915092cdab361ee4406e0b27153_96.webp"
+            color = "curseforge"
+        }
+    }
+
+    dryRun = providers.environmentVariable("DRY_RUN").map { it == "true" }
+}
+
+String calculateGitHash() {
+    try {
+        ExecOutput output = providers.exec {
+            commandLine('git', 'rev-parse', 'HEAD')
+            ignoreExitValue = true
+        }
+        return output.result.get().exitValue == 0 ? output.standardOutput.asText.get().trim() : "unknown"
+    } catch (Throwable ignored) {
+        return "unknown"
+    }
+}

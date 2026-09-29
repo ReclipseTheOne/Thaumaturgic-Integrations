@@ -29,6 +29,35 @@ group = mod_group_id
 repositories {
     mavenLocal()
     mavenCentral()
+    maven {
+        name = "KubeJS"
+        url = "https://maven.latvian.dev/releases"
+
+        content {
+            includeGroup("dev.latvian.mods")
+            includeGroup("dev.latvian.apps")
+        }
+    }
+
+    maven {
+        name = "KubeJS Mirror"
+        url = "https://maven.latvian.dev/mirror"
+        content {
+            includeGroup("com.github.rtyley")
+        }
+    }
+
+    maven {
+        url = "https://maven.kosmx.dev/"
+    }
+
+    maven {
+        name = "Malum"
+        url = "https://modmaven.dev"
+        content {
+            includeGroup "com.sammy.malum"
+        }
+    }
 
     maven {
         name = "Iron's Maven"
@@ -181,6 +210,7 @@ dependencies {
     implementation "maven.modrinth:neovitae:${neovitae_version}"
     implementation "com.hollingsworth.ars_nouveau:ars_nouveau-1.21.1:${ars_nouveau_version}"
     implementation "io.redspace:irons_spellbooks:${irons_spells_version}"
+    implementation "com.sammy.malum:malum:${malum_version}"
 
 
     runtimeOnly "curse.maven:observerlib-316833:${observerlib_file}"
